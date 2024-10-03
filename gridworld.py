@@ -12,8 +12,8 @@ class gridworld:
         `hazard_loc` = list of (x,y) coordinates for hazards
         '''
         if len(size) == 2:
-            self.x_max = size[0] - 1
-            self.y_max = size[1] - 1
+            self.x_max = size[0]
+            self.y_max = size[1]
             self.size = size[0]*size[1]
         else:
             raise Exception("size should be of lenth 2")
@@ -24,12 +24,12 @@ class gridworld:
                 # initialize agent/state class
     
     def make_grid(self):
-        x = list(range(0,self.x_max + 1))
-        y = list(range(0,self.y_max + 1))
+        x = list(range(0,self.x_max))
+        y = list(range(0,self.y_max))
         
         states = {}
         for i,label in enumerate(label_str[0:self.size]):
-            states[label] = (i%self.x_max, -(-i//self.y_max)) # (i mod x_max, ceil(i/y_max))
+            states[label] = (i%(self.x_max), i//self.x_max) # (i mod x_max, ceil(i/y_max))
 
         self.states = states
 

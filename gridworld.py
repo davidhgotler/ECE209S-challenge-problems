@@ -119,7 +119,7 @@ class gridworld:
                     s_calc = self.coord2state(s_t.coord + a_t)
                     if not s_calc or (s_calc is obstacle):
                         # not available state - add to stay probability
-                        self.p_matrix[0,j,k] += self.p_e/(len(actions)-1)
+                        self.p_matrix[i,j,j] += self.p_e/(len(actions)-1)
                     # intended direction
                     elif np.all(s_t.coord + a_t == s_tp1.coord):
                         self.p_matrix[i,j,k] += 1 - self.p_e

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import sys
 import numpy as np
 
 label_str = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
@@ -10,7 +11,6 @@ LEFT = np.array((-1,0))
 UP = np.array((0,1))
 DOWN = np.array((0,-1))
 actions = [STAY,RIGHT,LEFT,UP,DOWN]
-
 
 @dataclass
 class state:
@@ -114,19 +114,19 @@ class gridworld:
         self.p_matrix = np.zeros((len(actions),self.num_states,self.num_states))
         for i,a_t in enumerate(actions):
             for j,s_t in enumerate(self.states):
+                s_calc = self.coord2state(s_t.coord + a_t)
+                if not s_calc or (s_calc is obstacle):
+                    self.p_matrix[i,j,j] += 1 - self.p_e - self.p_e/(len(actions)-1)
+                    self.p_matrix[:,j,j] += self.p_e/(len(actions)-1)
                 for k,s_tp1 in enumerate(self.states):
-                    # boundaries and obstacles
-                    s_calc = self.coord2state(s_t.coord + a_t)
-                    if not s_calc or (s_calc is obstacle):
-                        # not available state - add to stay probability
-                        self.p_matrix[i,j,j] += self.p_e/(len(actions)-1)
-                    # intended direction
-                    elif np.all(s_t.coord + a_t == s_tp1.coord):
-                        self.p_matrix[i,j,k] += 1 - self.p_e
-                    # off-angles within one square
-                    # Check if distance is in the action set i.e. within one orthogonal step
+                    # limit motion to one action away
                     if np.any(np.all((s_tp1.coord - s_t.coord)==actions,axis=1)):
-                        self.p_matrix[i,j,k] += self.p_e/(len(actions)-1)
+                        # intended direction
+                        if s_calc == s_tp1:
+                            self.p_matrix[i,j,k] += 1 - self.p_e
+                        else:
+                            self.p_matrix[i,j,k] += self.p_e/(len(actions)-1)
+
                     # states that are more than 1 action away
                     else:
                         self.p_matrix[i,j,k] += 0 # redundant

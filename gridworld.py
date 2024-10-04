@@ -60,6 +60,7 @@ class gridworld:
         self.p_e = p_e # prob of error
         # transition probabilities
         self.calc_p_matrix()
+        self.calc_o_matrix()
 
         if len(agent_start) == 2:
             # Check start coord to be in bounds
@@ -88,6 +89,7 @@ class gridworld:
                 self.states.append(hazard(label,np.array((x,y))))
             else:
                 self.states.append(state(label,np.array((x,y))))
+        self.state_coords = np.array(self.state_coords)
 
     def coord2state(self,coord):
         for state in self.states:
@@ -130,6 +132,39 @@ class gridworld:
                     # states that are more than 1 action away
                     else:
                         self.p_matrix[i,j,k] += 0 # redundant
-                        
+    
+    def calc_o_matrix(self):
+        # calc d for each destination at each state
+        dest_coords = np.array([d.coord for d in self.states if type(d) is destination])
+        d_arr = np.array([np.linalg.norm(d-self.state_coords,axis=1) for d in dest_coords])
+
+        # calc h, ceil(h), floor(h) at each state
+        # h = 2/(sum: 1/d_i) = 2 * product: d_i / sum: d_i
+        if d_arr.shape[0]>1:
+            h_arr = 2*np.multiply.reduce(d_arr,axis=0)/np.sum(d_arr,axis=0)
+        else:
+            h_arr = d_arr
+        h_up_arr = np.ceil(h_arr).astype(int)
+        h_dn_arr = np.floor(h_arr).astype(int)
+        h_max = np.max(h_up_arr)
+        h_vals = np.arange(h_max+1)
+
+        # calc prob(ceil(h),floor(h)|s_t)
+        p_up_arr = 1 - (h_up_arr - h_arr)
+        p_dn_arr = 1 - (h_arr - h_dn_arr)
+        p_h_arr = np.zeros((h_max+1,self.num_states))
+        for h_i in h_vals:
+            for s,(h_up,h_dn,p_up,p_dn) in enumerate(zip(h_up_arr,h_dn_arr,p_up_arr,p_dn_arr)):
+                if h_up == h_i and h_dn == h_i:
+                    p_h_arr[h_i,s] += (p_up + p_dn)/2
+                elif h_up == h_i:
+                    p_h_arr[h_i,s] += p_up
+                elif h_dn == h_i:
+                    p_h_arr[h_i,s] += p_dn
+
+        # calc prob(h_i|s_t,a_t) = P_h,s_t,a_t = P_h,s_t+1 . P_s_t+1,s_t,a_t
+        self.p_o_matrix = np.dot(p_h_arr,self.p_matrix.swapaxes(1,2))
+
+
                 
 

@@ -111,39 +111,45 @@ class gridworld:
     #             continue
     #         if s_new in self.states:
     #             self.action.append(action)
-    
-    def calc_p_matrix(self):
+
+   def calc_p_matrix(self):
         self.p_matrix = np.zeros((len(actions),self.num_states,self.num_states))
         for i,a_t in enumerate(actions):
             for j,s_t in enumerate(self.states):
+              #print('s_t: ', s_t)
+              if type(s_t) is not obstacle:
+                #print('not obstacle')
                 s_calc = self.coord2state(s_t.coord + a_t)
-                if not s_calc or (s_calc is obstacle):
+                if not s_calc or (type(s_calc) is obstacle):
                     self.p_matrix[i,j,j] += 1 - self.p_e - self.p_e/(len(actions)-1)
                     self.p_matrix[:,j,j] += self.p_e/(len(actions)-1)
                 for k,s_tp1 in enumerate(self.states):
+                    if type(s_tp1) is not obstacle:
                     # limit motion to one action away
-                    if np.any(np.all((s_tp1.coord - s_t.coord)==actions,axis=1)):
-                        # intended direction
-                        if s_calc == s_tp1:
-                            self.p_matrix[i,j,k] += 1 - self.p_e
-                        else:
-                            self.p_matrix[i,j,k] += self.p_e/(len(actions)-1)
+                      if np.any(np.all((s_tp1.coord - s_t.coord)==actions,axis=1)):
+                          # intended direction
+                            if s_calc == s_tp1:
+                                self.p_matrix[i,j,k] += 1 - self.p_e
+                            else:
+                                self.p_matrix[i,j,k] += self.p_e/(len(actions)-1)
 
-                    # states that are more than 1 action away
-                    else:
-                        self.p_matrix[i,j,k] += 0 # redundant
+                      # states that are more than 1 action away
+                      else:
+                          self.p_matrix[i,j,k] += 0 # redundant
     
     def calc_o_matrix(self):
         # calc d for each destination at each state
         dest_coords = np.array([d.coord for d in self.states if type(d) is destination])
         d_arr = np.array([np.linalg.norm(d-self.state_coords,axis=1) for d in dest_coords])
-
+        # returns an array of dimension (No. of destinations, No. of states)
         # calc h, ceil(h), floor(h) at each state
         # h = 2/(sum: 1/d_i) = 2 * product: d_i / sum: d_i
         if d_arr.shape[0]>1:
             h_arr = 2*np.multiply.reduce(d_arr,axis=0)/np.sum(d_arr,axis=0)
         else:
             h_arr = d_arr
+
+        #h_arr is a 1D matrix with size as the number of states
         h_up_arr = np.ceil(h_arr).astype(int)
         h_dn_arr = np.floor(h_arr).astype(int)
         h_max = np.max(h_up_arr)
@@ -161,10 +167,7 @@ class gridworld:
                     p_h_arr[h_i,s] += p_up
                 elif h_dn == h_i:
                     p_h_arr[h_i,s] += p_dn
-
+        #p_h_arr is the probability matrix for each output value with dimensions (no. of possible h values, no. of states)
         # calc prob(h_i|s_t,a_t) = P_h,s_t,a_t = P_h,s_t+1 . P_s_t+1,s_t,a_t
         self.p_o_matrix = np.dot(p_h_arr,self.p_matrix.swapaxes(1,2))
-
-
-                
 

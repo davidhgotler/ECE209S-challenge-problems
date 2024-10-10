@@ -20,17 +20,20 @@ class state:
     coord:np.ndarray
 
 @dataclass
-class destination(state):
+class obstacle(state):
+    pass
+
+@dataclass
+class reward(state):
     reward:int
+
+@dataclass
+class destination(reward):
     destination_name:str = 'ice cream shop'
 
 @dataclass
-class obstacle(state):
+class hazard(reward):
     pass
-        
-@dataclass
-class hazard(state):
-    reward:int
 
 class agent:
     def __init__(self,s_start:state,history:list[state]=[]) -> None:

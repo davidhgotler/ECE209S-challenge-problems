@@ -38,7 +38,7 @@ class agent:
         self.history = history
 
     def save_state(self,s_new):
-        self.history.append(self.s)
+        self.history.append(self.state)
         self.state = s_new
 
 class gridworld:
@@ -233,10 +233,10 @@ class gridworld:
         RNG.seed(datetime.timestamp(datetime.now()))
         # Get index of current state and action
         s = self.states.index(self.agent.state)
-        a = actions.index(action)
+        a = np.where(np.all(actions==action,axis=1))[0][0]
         # Make probabilistic choice of states given the transition probabilities
-        new_state = RNG.choices(self.states,weights=self.p_matrix[a,s,:])
+        new_state = RNG.choices(self.states,weights=self.p_matrix[a,s,:])[0]
         # Save new state
-        self.agent.update_state(new_state)
+        self.agent.save_state(new_state)
 
 

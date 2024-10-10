@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from random import Random
+from datetime import datetime
 import sys
 import numpy as np
 
@@ -19,7 +21,8 @@ class state:
 
 @dataclass
 class destination(state):
-    destination_type:str = 'ice cream shop'
+    reward:int
+    destination_name:str = 'ice cream shop'
 
 @dataclass
 class obstacle(state):
@@ -27,20 +30,19 @@ class obstacle(state):
         
 @dataclass
 class hazard(state):
-    pass
+    reward:int
 
 class agent:
-    def __init__(self,s:state,history:list[state]=[]) -> None:
-        self.s = s
+    def __init__(self,s_start:state,history:list[state]=[]) -> None:
+        self.state = s_start
         self.history = history
 
-    def update_state(self,s_new):
+    def save_state(self,s_new):
         self.history.append(self.s)
-        self.s = s_new
-
+        self.state = s_new
 
 class gridworld:
-    def __init__(self,size:tuple[int],agent_start:np.ndarray,destinations:list[tuple[int]],obstacles:list[tuple[int]],hazards:list[tuple[int]],p_e = 0.2,destination_type='ice cream shop') -> None:
+    def __init__(self,size:tuple[int],agent_start:np.ndarray,destinations:list[tuple[int]],obstacles:list[tuple[int]],hazards:list[tuple[int]],p_e = 0.2,dest_rewards=None,haz_rewards=None,dest_names='ice cream shop') -> None:
         '''
         `size` = size of the grid-world in X,Y\\
         `agent_start` = (x,y) coordinate for the starting position of the agent\\
@@ -55,12 +57,27 @@ class gridworld:
             self.num_states = size[0]*size[1]
         else:
             raise Exception("size should be integer valued tuple lenth 2")
+        
+        if len(destinations) > 0:
+            if type(dest_rewards) is list:
+                if len(dest_rewards)!= len(destinations):
+                    if len(dest_rewards)!=1:
+                        raise Exception("destination rewards should be given as one integer value, or a list of same size as destinations list.")
+            if dest_rewards is None:
+                print('No destination reward value given, defaulting to 1')
+                dest_rewards = 1
+        
+        if len(hazards) > 0:
+            if type(haz_rewards) is list:
+                if len(haz_rewards)!= len(hazards):
+                    if len(haz_rewards)!=1:
+                        raise Exception("hazard rewards should be given as one integer value, or a list of same size as hazards list.")
+            if haz_rewards is None:
+                print('No hazard reward value given, defaulting to -1')
+                haz_rewards = -1
+
         # Initialize/calc grid states
-        self.make_grid(destinations,obstacles,hazards,destination_type)
-        self.p_e = p_e # prob of error
-        # transition probabilities
-        self.calc_p_matrix()
-        self.calc_o_matrix()
+        self.make_grid(destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names)
 
         if len(agent_start) == 2:
             # Check start coord to be in bounds
@@ -71,8 +88,15 @@ class gridworld:
                 raise Exception("could not find valid state from agent_start")
         else:
             raise Exception("agent_start should be integer valued tuple of length 2")
+        
+        self.p_e = p_e # prob of error
+        # transition probabilities
+        self.calc_p_matrix()
+        self.calc_o_matrix()
+        self.update_o()
 
-    def make_grid(self,destinations,obstacles,hazards,destination_type):
+
+    def make_grid(self,destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names):
         self.states = []
         self.state_labels = []
         self.state_coords = []
@@ -82,11 +106,37 @@ class gridworld:
             self.state_labels.append(label)
             self.state_coords.append(np.array((x,y)))
             if (x,y) in destinations:
-                self.states.append(destination(label,np.array((x,y)),destination_type))
+                d = destinations.index((x,y))
+                if type(dest_names) is list:
+                    if len(dest_names)>1:
+                        dest_name = dest_names[d]
+                    else:
+                        dest_name = dest_names[0]
+                else:
+                    dest_name = dest_names
+
+                if type(dest_rewards) is list:
+                    if len(dest_rewards) > 1:   
+                        dest_reward = dest_rewards[d]
+                    else:
+                        dest_reward = dest_rewards[0]
+                else:
+                    dest_reward =  dest_rewards
+
+                self.states.append(destination(label,np.array((x,y)),dest_reward,dest_name))
             elif (x,y) in obstacles:
                 self.states.append(obstacle(label,np.array((x,y))))
             elif (x,y) in hazards:
-                self.states.append(hazard(label,np.array((x,y))))
+                h = hazards.index((x,y))
+                if type(haz_rewards) is list:
+                    if len(haz_rewards) > 1:
+                        haz_reward = haz_rewards[h]
+                    else:
+                        haz_rewards = haz_rewards[0]
+                else:
+                    haz_reward = haz_rewards
+
+                self.states.append(hazard(label,np.array((x,y)),haz_reward))
             else:
                 self.states.append(state(label,np.array((x,y))))
         self.state_coords = np.array(self.state_coords)
@@ -146,25 +196,42 @@ class gridworld:
             h_arr = d_arr
         h_up_arr = np.ceil(h_arr).astype(int)
         h_dn_arr = np.floor(h_arr).astype(int)
-        h_max = np.max(h_up_arr)
-        h_vals = np.arange(h_max+1)
+        o_max = np.max(h_up_arr)
+        self.o_vals = np.arange(o_max+1)
 
         # calc prob(ceil(h),floor(h)|s_t)
         p_up_arr = 1 - (h_up_arr - h_arr)
         p_dn_arr = 1 - (h_arr - h_dn_arr)
-        p_h_arr = np.zeros((h_max+1,self.num_states))
-        for h_i in h_vals:
+        self.p_o_arr = np.zeros((o_max+1,self.num_states))
+        for o in self.o_vals:
             for s,(h_up,h_dn,p_up,p_dn) in enumerate(zip(h_up_arr,h_dn_arr,p_up_arr,p_dn_arr)):
-                if h_up == h_i and h_dn == h_i:
-                    p_h_arr[h_i,s] += (p_up + p_dn)/2
-                elif h_up == h_i:
-                    p_h_arr[h_i,s] += p_up
-                elif h_dn == h_i:
-                    p_h_arr[h_i,s] += p_dn
-
-        # calc prob(h_i|s_t,a_t) = P_h,s_t,a_t = P_h,s_t+1 . P_s_t+1,s_t,a_t
-        self.p_o_matrix = np.dot(p_h_arr,self.p_matrix.swapaxes(1,2))
+                if h_up == o and h_dn == o:
+                    self.p_o_arr[o,s] += (p_up + p_dn)/2
+                elif h_up == o:
+                    self.p_o_arr[o,s] += p_up
+                elif h_dn == o:
+                    self.p_o_arr[o,s] += p_dn
+    
+    def update_o(self):
+        # probabilistically update o given current state based on output proabilities
+        RNG = Random()
+        RNG.seed(datetime.timestamp(datetime.now()))
+        s = self.states.index(self.agent.state)
+        self.o = RNG.choices(self.o_vals,weights=self.p_o_arr[:,s])
+    
+    def update_state(self,action):
+        # probabilistically update state given an input, based on transition probabilities
+        RNG = Random()
+        RNG.seed(datetime.timestamp(datetime.now()))
+        # Get index of current state and action
+        s = self.states.index(self.agent.state)
+        a = actions.index(action)
+        # Make probabilistic choice of states given the transition probabilities
+        new_state = RNG.choices(self.states,weights=self.p_matrix[a,s,:])
+        # Save new state
+        self.agent.update_state(new_state)
 
 
                 
+
 

@@ -168,27 +168,49 @@ class gridworld:
         self.p_matrix = np.zeros((len(actions),self.num_states,self.num_states))
         for i,a_t in enumerate(actions):
             for j,s_t in enumerate(self.states):
-              #print('s_t: ', s_t)
-              if type(s_t) is not obstacle:
-                #print('not obstacle')
-                s_calc = self.coord2state(s_t.coord + a_t)
-                if not s_calc or (type(s_calc) is obstacle):
-                    self.p_matrix[i,j,j] += 1 - self.p_e - self.p_e/(len(actions)-1)
-                    self.p_matrix[:,j,j] += self.p_e/(len(actions)-1)
-                for k,s_tp1 in enumerate(self.states):
-                    if type(s_tp1) is not obstacle:
-                    # limit motion to one action away
-                      if np.any(np.all((s_tp1.coord - s_t.coord)==actions,axis=1)):
-                          # intended direction
-                            if s_calc == s_tp1:
-                                self.p_matrix[i,j,k] += 1 - self.p_e
-                            else:
-                                self.p_matrix[i,j,k] += self.p_e/(len(actions)-1)
+                #print('s_t: ', s_t)
+                if type(s_t) is not obstacle:
+                    #print('not obstacle')
+                    s_calc = self.coord2state(s_t.coord + a_t)
+                    if not s_calc or (type(s_calc) is obstacle):
+                        self.p_matrix[i,j,j] += 1 - self.p_e - self.p_e/(len(actions)-1)
+                        self.p_matrix[:,j,j] += self.p_e/(len(actions)-1)
+                    for k,s_tp1 in enumerate(self.states):
+                        if type(s_tp1) is not obstacle:
+                        # limit motion to one action away
+                            if np.any(np.all((s_tp1.coord - s_t.coord)==actions,axis=1)):
+                                # intended direction
+                                if s_calc == s_tp1:
+                                    self.p_matrix[i,j,k] += 1 - self.p_e
+                                else:
+                                    self.p_matrix[i,j,k] += self.p_e/(len(actions)-1)
 
-                      # states that are more than 1 action away
-                      else:
-                          self.p_matrix[i,j,k] += 0 # redundant
+                            # states that are more than 1 action away
+                            else:
+                                self.p_matrix[i,j,k] += 0 # redundant
+                else:
+                    continue #skip obstacle states bc prob 0 of being in state
     
+    def calc_r_matrix(self):
+        self.r_matrix = np.zeros((len(actions),self.num_states,self.num_states))
+        for i,a_t in enumerate(actions):
+            for j,s_t in enumerate(self.states):
+                s_calc = self.coord2state(s_t.coord + a_t)
+                for k,s_tp1 in enumerate(self.states):
+                    if type(s_tp1) is destination:
+                        # Check intended direction
+                        if s_calc == s_tp1:
+                            self.r_matrix[i,j,k] = s_tp1.reward
+                        else:
+                            self.r_matrix[i,j,k] = 0
+                    elif type(s_tp1) is hazard:
+                        if self.p_matrix[i,j,k] > 0:
+                            self.r_matrix[i,j,k] = s_tp1.reward
+                        else:
+                            self.r_matrix[i,j,k] = 0
+                    else:
+                        self.r_matrix[i,j,k] = 0
+
     def calc_o_matrix(self):
         # calc d for each destination at each state
         dest_coords = np.array([d.coord for d in self.states if type(d) is destination])

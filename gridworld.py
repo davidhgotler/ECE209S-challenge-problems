@@ -95,7 +95,6 @@ class gridworld:
         self.calc_o_matrix()
         self.update_o()
 
-
     def make_grid(self,destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names):
         self.states = []
         self.state_labels = []
@@ -225,7 +224,7 @@ class gridworld:
         RNG = Random()
         RNG.seed(datetime.timestamp(datetime.now()))
         s = self.states.index(self.agent.state)
-        self.o = RNG.choices(self.o_vals,weights=self.p_o_arr[:,s])
+        self.o = RNG.choices(self.o_vals,weights=self.p_o_arr[:,s])[0]
     
     def update_state(self,action):
         # probabilistically update state given an input, based on transition probabilities
@@ -238,5 +237,7 @@ class gridworld:
         new_state = RNG.choices(self.states,weights=self.p_matrix[a,s,:])[0]
         # Save new state
         self.agent.save_state(new_state)
+        # Save new sample of o at new state
+        self.update_o()
 
 

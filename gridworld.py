@@ -45,7 +45,7 @@ class agent:
         self.state = s_new
 
 class gridworld:
-    def __init__(self,size:tuple[int],agent_start:np.ndarray,destinations:list[tuple[int]],obstacles:list[tuple[int]],hazards:list[tuple[int]],p_e = 0.2,dest_rewards=None,haz_rewards=None,dest_names='ice cream shop') -> None:
+    def __init__(self,size:tuple[int],agent_start:np.ndarray,destinations:list[tuple[int]],obstacles:list[tuple[int]],hazards:list[tuple[int]],p_e = 0.2,dest_rewards=None,haz_rewards=None,dest_names='ice cream shop',gamma = 0.8,epsilon = 0.01) -> None:
         '''
         `size` = size of the grid-world in X,Y\\
         `agent_start` = (x,y) coordinate for the starting position of the agent\\
@@ -93,6 +93,9 @@ class gridworld:
             raise Exception("agent_start should be integer valued tuple of length 2")
         
         self.p_e = p_e # prob of error
+        self.gamma = gamma # discount factor   
+        self.epsilon = epsilon # convergence threshold
+         
         # transition probabilities
         self.calc_p_matrix()
         self.calc_o_matrix()
@@ -267,5 +270,55 @@ class gridworld:
         self.agent.save_state(new_state)
         # Save new sample of o at new state
         self.update_o()
+        
+    def value_iteration(self):
+        self.calc_p_matrix()
+        self.calc_r_matrix()
+        states = np.arange(self.num_states)
+        # Initialize value function
+        value_map = np.zeros(self.num_states)
+        action_indices = np.arange(len(actions))
+
+        while True:
+            delta = 0
+            for s in states:
+                v = value_map[s]
+                value_map[s] = max(sum(self.p_matrix[a, s, s_next] * (self.r_matrix[a, s, s_next] + self.gamma * value_map[s_next])
+                                for s_next in states) for a in action_indices) # value function
+                delta = max(delta, abs(v - value_map[s])) # amount in which value function has changed
+            
+            # Check for convergence
+            if delta < self.epsilon:
+                break
+        
+        self.value_map = value_map
+
+
+    def extract_policy(self):
+        self.value_iteration()
+        policy = [0] * self.num_states
+        for s in (range(self.num_states)):
+            # find the max a in actions that maximize the function given by lambda
+            policy[s] = max(np.arange(len(actions)), key=lambda a: sum(self.p_matrix[a, s, s_next] * (self.r_matrix[a, s, s_next] + self.gamma * self.value_map[s_next])
+                                                        for s_next in (range(self.num_states))))
+        self.policy_map = policy
+    
+    def print_policy_map(self):
+        self.extract_policy()
+        policy_sign_map = np.zeros((self.x_max,self.y_max),dtype = str)
+        action_signs = ['o','→','←','↑','↓']
+        for i in range(self.y_max):
+            for j in range(self.x_max):
+                policy_sign_map[self.y_max -1 -i][j] = action_signs[self.policy_map[i*self.x_max+j]]
+        print(policy_sign_map)
+    
+    def check_if_arrive_at_dest(self,curr_state):
+        # if arrived, change the rewards of the destination to 0
+        if type(curr_state) is destination:
+            curr_state.reward = 0
+            return True
+        else:
+            return False      
+        
 
 

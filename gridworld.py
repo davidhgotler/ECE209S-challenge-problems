@@ -221,7 +221,10 @@ class gridworld:
         if d_arr.shape[0]>1:
             h_arr = 2*np.multiply.reduce(d_arr,axis=0)/np.sum(d_arr,axis=0)
         else:
-            h_arr = d_arr
+            h_arr = d_arr[0]
+            # original code: h_arr = d_arr
+            # reported error when create world with one destination
+            # d_arr was originally [[...]], should be [...]
 
         #h_arr is a 1D matrix with size as the number of states
         h_up_arr = np.ceil(h_arr).astype(int)

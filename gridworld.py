@@ -99,6 +99,9 @@ class gridworld:
         # transition probabilities
         self.calc_p_matrix()
         self.calc_o_matrix()
+        self.calc_r_matrix()
+        self.value_iteration()
+        self.extract_policy()
         self.update_o()
 
     def make_grid(self,destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names):
@@ -281,12 +284,13 @@ class gridworld:
 
         while True:
             delta = 0
-            for s in states:
+            for s in range(self.num_states):
+                # if type(self.states[s]) is not obstacle:
                 v = value_map[s]
                 value_map[s] = max(sum(self.p_matrix[a, s, s_next] * (self.r_matrix[a, s, s_next] + self.gamma * value_map[s_next])
                                 for s_next in states) for a in action_indices) # value function
                 delta = max(delta, abs(v - value_map[s])) # amount in which value function has changed
-            
+        
             # Check for convergence
             if delta < self.epsilon:
                 break
@@ -296,29 +300,34 @@ class gridworld:
 
     def extract_policy(self):
         self.value_iteration()
-        policy = [0] * self.num_states
-        for s in (range(self.num_states)):
+        policy = np.zeros(self.num_states,dtype=int)
+        for s in range(self.num_states):
             # find the max a in actions that maximize the function given by lambda
-            policy[s] = max(np.arange(len(actions)), key=lambda a: sum(self.p_matrix[a, s, s_next] * (self.r_matrix[a, s, s_next] + self.gamma * self.value_map[s_next])
-                                                        for s_next in (range(self.num_states))))
+            # if type(self.states[s]) is not obstacle:
+            policy[s] = max(np.arange(len(actions)), key=lambda a: sum(self.p_matrix[a, s, s_next] * (self.r_matrix[a, s, s_next] + self.gamma * self.value_map[s_next]) for s_next in (range(self.num_states))))
         self.policy_map = policy
     
     def print_policy_map(self):
-        self.extract_policy()
         policy_sign_map = np.zeros((self.x_max,self.y_max),dtype = str)
         action_signs = ['o','→','←','↑','↓']
-        for i in range(self.y_max):
-            for j in range(self.x_max):
-                policy_sign_map[self.y_max -1 -i][j] = action_signs[self.policy_map[i*self.x_max+j]]
-        print(policy_sign_map)
+        indices = np.zeros((self.x_max,self.y_max))
+        for i in range(self.x_max):
+            for j in range(self.y_max):
+                policy_sign_map[i][self.y_max - 1 - j] = action_signs[self.policy_map[i+j*self.x_max]]
+                indices[i,self.y_max - 1 - j] = i+j*self.x_max
+        print(policy_sign_map.T)
+        print(indices.T)
     
-    def check_if_arrive_at_dest(self,curr_state):
+    def check_if_arrive_at_dest(self):
         # if arrived, change the rewards of the destination to 0
-        if type(curr_state) is destination:
-            curr_state.reward = 0
+        if type(self.agent.state) is destination:
+            self.agent.state.reward = 0
+            self.calc_r_matrix()
+            self.value_iteration()
+            self.extract_policy()
             return True
         else:
-            return False      
+            return False
         
 
 

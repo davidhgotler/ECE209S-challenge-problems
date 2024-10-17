@@ -277,25 +277,25 @@ class gridworld:
     def value_iteration(self):
         self.calc_p_matrix()
         self.calc_r_matrix()
-        states = np.arange(self.num_states)
+        # states = np.arange(self.num_states)
         # Initialize value function
-        value_map = np.zeros(self.num_states)
+        value_map = np.zeros((len(actions),self.num_states))
         action_indices = np.arange(len(actions))
-
-        while True:
+        self.value_map = np.zeros(self.num_states)
+        delta = 9999
+        while delta > self.epsilon:
             delta = 0
+            # Save current optimal
+            v = self.value_map.copy()
+            # Compute value function for all actions
             for s in range(self.num_states):
-                # if type(self.states[s]) is not obstacle:
-                v = value_map[s]
-                value_map[s] = max(sum(self.p_matrix[a, s, s_next] * (self.r_matrix[a, s, s_next] + self.gamma * value_map[s_next])
-                                for s_next in states) for a in action_indices) # value function
-                delta = max(delta, abs(v - value_map[s])) # amount in which value function has changed
-        
-            # Check for convergence
-            if delta < self.epsilon:
-                break
-        
-        self.value_map = value_map
+                for a in range(len(actions)):
+                    # if type(self.states[s]) is not obstacle:
+                    value_map[a,s] = sum(self.p_matrix[a, s, s_next] * (self.r_matrix[a, s, s_next] + self.gamma * value_map[a,s_next]) for s_next in range(self.num_states)) # value function
+            # get optimal value function
+            self.value_map = np.max(value_map,axis=0)
+            self.policy_map = np.argmax(value_map,axis=0)
+            delta = np.max(np.abs(self.value_map - v)) # amount in which value function has changed
 
 
     def extract_policy(self):
@@ -316,7 +316,6 @@ class gridworld:
                 policy_sign_map[i][self.y_max - 1 - j] = action_signs[self.policy_map[i+j*self.x_max]]
                 indices[i,self.y_max - 1 - j] = i+j*self.x_max
         print(policy_sign_map.T)
-        print(indices.T)
     
     def check_if_arrive_at_dest(self):
         # if arrived, change the rewards of the destination to 0

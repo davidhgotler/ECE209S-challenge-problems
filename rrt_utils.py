@@ -1,24 +1,9 @@
 import numpy as np
 
-class Tree:
-    def __init__(self,coord,children = []) -> None:
-        self._coord = coord
-        self._children = children
-
-    @property
-    def coord(self):
-        return self._coord
-
-    @property
-    def children(self):
-        return self._children
-
-    @children.setter
-    def children(self,children):
-        self._children = children
+class Node:
+    def __init__(self,coord,children = None) -> None:
+        self.coord = coord
+        self.children = [] if children is None else children
     
-    def add_child(self,child):
-        if type(child) is list:
-            self._children += child
-        else:
-            self._children += [child]
+    def __repr__(self) -> str:
+        return f"<Node at coord = {self.coord}, children = {self.children}>"

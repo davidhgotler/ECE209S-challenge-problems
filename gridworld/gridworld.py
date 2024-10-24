@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from random import Random
 from datetime import datetime
+from copy import copy,deepcopy
 import sys
 import numpy as np
 
@@ -45,7 +46,7 @@ class agent:
         self.state = s_new
 
 class gridworld:
-    def __init__(self,size:tuple[int],agent_start:np.ndarray,destinations:list[tuple[int]],obstacles:list[tuple[int]],hazards:list[tuple[int]],p_e = 0.2,dest_rewards=None,haz_rewards=None,dest_names='ice cream shop',gamma = 0.8,epsilon = 0.01) -> None:
+    def __init__(self,size:tuple[int],n_agensts:int,agents_start:list[np.ndarray],destinations:list[tuple[int]],obstacles:list[tuple[int]],hazards:list[tuple[int]],p_e = 0.2,dest_rewards=None,haz_rewards=None,dest_names='ice cream shop',gamma = 0.8,epsilon = 0.01) -> None:
         '''
         `size` = size of the grid-world in X,Y\\
         `agent_start` = (x,y) coordinate for the starting position of the agent\\
@@ -60,6 +61,7 @@ class gridworld:
             self.num_states = size[0]*size[1]
         else:
             raise Exception("size should be integer valued tuple lenth 2")
+        self.n_agents = n_agensts
         
         if len(destinations) > 0:
             if type(dest_rewards) is list:
@@ -80,7 +82,7 @@ class gridworld:
                 haz_rewards = -1
 
         # Initialize/calc grid states
-        self.make_grid(destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names)
+        self.get_states(destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names)
 
         if len(agent_start) == 2:
             # Check start coord to be in bounds
@@ -104,15 +106,15 @@ class gridworld:
         self.extract_policy()
         self.update_o()
 
-    def make_grid(self,destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names):
-        self.states = []
-        self.state_labels = []
-        self.state_coords = []
+    def get_states(self,destinations,obstacles,hazards,dest_rewards,haz_rewards,dest_names):
+        grid_states = []
+        state_labels = []
+        state_coords = []
         for i,label in enumerate(label_str[0:self.num_states]):
             x = i%self.x_max
             y = i//self.x_max
-            self.state_labels.append(label)
-            self.state_coords.append(np.array((x,y)))
+            state_labels.append(label)
+            state_coords.append(np.array((x,y)))
             if (x,y) in destinations:
                 d = destinations.index((x,y))
                 if type(dest_names) is list:
@@ -131,9 +133,9 @@ class gridworld:
                 else:
                     dest_reward =  dest_rewards
 
-                self.states.append(destination(label,np.array((x,y)),dest_reward,dest_name))
+                grid_states.append(destination(label,np.array((x,y)),dest_reward,dest_name))
             elif (x,y) in obstacles:
-                self.states.append(obstacle(label,np.array((x,y))))
+                grid_states.append(obstacle(label,np.array((x,y))))
             elif (x,y) in hazards:
                 h = hazards.index((x,y))
                 if type(haz_rewards) is list:
@@ -144,9 +146,24 @@ class gridworld:
                 else:
                     haz_reward = haz_rewards
 
-                self.states.append(hazard(label,np.array((x,y)),haz_reward))
+                grid_states.append(hazard(label,np.array((x,y)),haz_reward))
             else:
-                self.states.append(state(label,np.array((x,y))))
+                grid_states.append(state(label,np.array((x,y))))
+        
+        # Compute combinations of all agent states
+        indices = []
+        for k in range(self.n_agents,0,-1):
+            indices.insert(0,[[i]*(self.n_agents**k) for i in range(self.num_states)])
+        print(indices)
+        i0 = indices[0]
+        states = [[grid_states[i]] for i in i0]
+        for ii in indices[1:]:
+            for i in i0:
+                for j in ii:
+                    states[i].append([grid_states[j]])
+        print(states)
+
+        self.state_labels = state_labels
         self.state_coords = np.array(self.state_coords)
 
     def coord2state(self,coord):
